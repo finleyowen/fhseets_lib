@@ -174,6 +174,7 @@ fn setup_lexer() -> Lexer<Token> {
     });
 
     lexer.add_rule(".", |re_match| {
+        dbg!(re_match.as_str(), re_match.start());
         LexResult::Error(
             format!("Unmatched input at position {}", re_match.start()).into(),
         )
@@ -559,7 +560,8 @@ mod tests {
 
     fn lex(s: &str) -> Result<TokenQueue<Token>, Box<dyn Error>> {
         let lexer = setup_lexer();
-        let tq = TokenQueue::new(lexer.lex(s)?);
+        let tokens = lexer.lex(s)?;
+        let tq = TokenQueue::new(tokens);
         Ok(tq)
     }
 
@@ -767,7 +769,7 @@ mod tests {
         let (_prgm, _) = parse_prgm(&tq)?;
 
         let tq = lex(include_str!(
-            "../test_artifacts/valid_schemas/valid_schema_1.txt"
+            "../test_artifacts/valid_schemas/valid_schema_2.txt"
         ))?;
         let (_prgm, _) = parse_prgm(&tq)?;
 
