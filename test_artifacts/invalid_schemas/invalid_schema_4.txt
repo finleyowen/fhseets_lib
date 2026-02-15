@@ -1,0 +1,2 @@
+type uIntType int<0,>;
+type uIntType int<0,>; // shadowing type definition

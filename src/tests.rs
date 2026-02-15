@@ -1,6 +1,6 @@
+use std::fs;
 
-use crate::lex::*;
-use crate::parse::*;
+use crate::{lex::*, parse::*, validate::validate_prgm};
 use rlrl::prelude::*;
 
 fn lex(s: &str) -> anyhow::Result<TokenQueue<Token>> {
@@ -30,10 +30,10 @@ fn maps_to_column_schema(s: &str) -> anyhow::Result<bool> {
     Ok(out == s)
 }
 
-fn parses_to_prgm(s: &str) -> anyhow::Result<bool> {
+fn parse_prgm_from_str(s: &str) -> anyhow::Result<Prgm> {
     let mut tq = lex(s)?;
-    let _prgm = tq.parse(parse_prgm)?;
-    Ok(true)
+    let prgm = tq.parse(parse_prgm)?;
+    Ok(prgm)
 }
 
 #[test]
@@ -184,12 +184,40 @@ fn table_schema_test() -> anyhow::Result<()> {
 
 #[test]
 fn parse_prgm_test() -> anyhow::Result<()> {
-    assert!(parses_to_prgm(include_str!(
+    let prgm = parse_prgm_from_str(include_str!(
         "../test_artifacts/valid_schemas/valid_schema_1.txt"
-    ))?);
-    assert!(parses_to_prgm(include_str!(
+    ))?;
+    assert!(prgm.stmts.len() == 6);
+
+    let prgm = parse_prgm_from_str(include_str!(
         "../test_artifacts/valid_schemas/valid_schema_2.txt"
-    ))?);
+    ))?;
+    assert!(prgm.stmts.len() == 4);
+
+    Ok(())
+}
+
+fn load_prgm(path: &str) -> anyhow::Result<Prgm> {
+    parse_prgm_from_str(&fs::read_to_string(path)?)
+}
+
+#[test]
+fn validate_prgm_test() -> anyhow::Result<()> {
+    let prgm =
+        load_prgm("test_artifacts/invalid_schemas/invalid_schema_1.txt")?;
+    assert!(validate_prgm(&prgm).is_err());
+
+    let prgm =
+        load_prgm("test_artifacts/invalid_schemas/invalid_schema_2.txt")?;
+    assert!(validate_prgm(&prgm).is_err());
+
+    let prgm =
+        load_prgm("test_artifacts/invalid_schemas/invalid_schema_3.txt")?;
+    assert!(validate_prgm(&prgm).is_err());
+
+    let prgm =
+        load_prgm("test_artifacts/invalid_schemas/invalid_schema_4.txt")?;
+    assert!(validate_prgm(&prgm).is_err());
 
     Ok(())
 }

@@ -1,0 +1,3 @@
+table T(
+	a: int<3,2> // min > max
+);

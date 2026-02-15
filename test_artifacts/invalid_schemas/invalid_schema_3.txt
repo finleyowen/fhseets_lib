@@ -1,0 +1,6 @@
+table T(
+	a: int<5,10>
+);
+table T( // shadowing table name
+	b: int<5,10>
+);

@@ -347,7 +347,7 @@ pub fn parse_stmt(tq: &TokenQueue<Token>) -> ParseResult<Stmt> {
 
 #[derive(Debug, PartialEq)]
 pub struct Prgm {
-    stmts: Vec<Stmt>,
+    pub stmts: Vec<Stmt>,
 }
 
 pub fn parse_prgm(tq: &TokenQueue<Token>) -> ParseResult<Prgm> {

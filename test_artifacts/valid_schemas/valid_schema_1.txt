@@ -2,8 +2,6 @@
 	FSheets DDL Schema Example 1
 
 	Demonstrates the FSheets DDL by defining some data types and table schemas.
-	
-	Complete with comments!
 */
 
 // useful types in the spreadsheet
