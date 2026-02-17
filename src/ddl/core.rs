@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 /// Enum representing a literal token in the DDL
 #[derive(PartialEq, Debug, Clone)]
@@ -72,42 +72,55 @@ pub type IntRange = Range<i32>;
 /// Type alias over a `Range<T> where T = f64`
 pub type DblRange = Range<f64>;
 
-/// The basic types available in the application.
+/// Expressions representing the basic types available in the application.
 #[derive(Debug, PartialEq)]
-pub enum ParentType {
+pub enum ParentTypeExpr {
     Int(IntRange),
     Str(IntRange),
     Dbl(DblRange),
     Ident(String),
 }
 
+pub enum ParentType {
+    Int(IntRange),
+    Str(IntRange),
+    Dbl(DblRange),
+}
+
 /// Derived data types in the applicaiton.
 #[derive(Debug, PartialEq)]
-pub struct DType {
-    pub parent: ParentType,
+pub struct DTypeExpr {
+    pub parent: ParentTypeExpr,
     pub nullable: bool,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ColumnSchema {
+pub struct ColumnSchemaExpr {
     pub column_name: String,
-    pub dtype: DType,
+    pub dtype: DTypeExpr,
     pub default_value: Option<Literal>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TableSchema {
+pub struct TableSchemaExpr {
     pub table_name: String,
-    pub columns: Vec<ColumnSchema>,
+    pub columns: Vec<ColumnSchemaExpr>,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Stmt {
-    TypeDef(String, Rc<ParentType>),
-    Table(Rc<TableSchema>),
+    TypeDef(String, Rc<ParentTypeExpr>),
+    TableSchema(Rc<TableSchemaExpr>),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct SpreadsheetSchema {
+pub struct DbSchema {
     pub stmts: Vec<Stmt>,
 }
+
+pub enum Symbol {
+    TypeDef(Rc<ParentTypeExpr>),
+    Table(Rc<TableSchemaExpr>),
+}
+
+pub type SymbolTable = HashMap<String, Symbol>;

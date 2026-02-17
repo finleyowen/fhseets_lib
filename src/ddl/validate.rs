@@ -1,21 +1,13 @@
-use crate::core::*;
+use super::core::*;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    rc::Rc,
 };
 
 const STR_LEN_MSG: &str = "String length can't be negative!";
 
-pub enum Symbol {
-    TypeDef(Rc<ParentType>),
-    Table(Rc<TableSchema>),
-}
-
-pub struct SymbolTable(HashMap<String, Symbol>);
-
 pub trait Validate {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()>;
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()>;
 }
 
 impl<T> Validate for Range<T>
@@ -35,13 +27,13 @@ where
     }
 }
 
-impl Validate for ParentType {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()> {
+impl Validate for ParentTypeExpr {
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()> {
         match &self {
-            ParentType::Int(range) => range.validate(symbol_table),
-            ParentType::Dbl(range) => range.validate(symbol_table),
-            ParentType::Str(range) => {
-                range.validate(symbol_table)?;
+            ParentTypeExpr::Int(range) => range.validate(sym_table),
+            ParentTypeExpr::Dbl(range) => range.validate(sym_table),
+            ParentTypeExpr::Str(range) => {
+                range.validate(sym_table)?;
                 if let Some(min) = range.min
                     && min < 0
                 {
@@ -56,8 +48,8 @@ impl Validate for ParentType {
 
                 Ok(())
             }
-            ParentType::Ident(ident) => {
-                if !symbol_table.0.contains_key(ident) {
+            ParentTypeExpr::Ident(ident) => {
+                if !sym_table.contains_key(ident) {
                     return Err(anyhow::anyhow!("Unrecognised dtype {ident}"));
                 }
                 Ok(())
@@ -66,15 +58,15 @@ impl Validate for ParentType {
     }
 }
 
-impl Validate for ColumnSchema {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()> {
-        self.dtype.parent.validate(symbol_table)?;
+impl Validate for ColumnSchemaExpr {
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()> {
+        self.dtype.parent.validate(sym_table)?;
         Ok(())
     }
 }
 
-impl Validate for TableSchema {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()> {
+impl Validate for TableSchemaExpr {
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()> {
         let mut column_names: HashSet<&str> = HashSet::new();
         column_names.reserve(self.columns.len());
 
@@ -86,7 +78,7 @@ impl Validate for TableSchema {
                 ));
             }
 
-            column.validate(symbol_table)?;
+            column.validate(sym_table)?;
         }
 
         Ok(())
@@ -94,22 +86,21 @@ impl Validate for TableSchema {
 }
 
 impl Validate for Stmt {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()> {
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()> {
         match self {
             Self::TypeDef(name, parent_type) => {
-                if let Some(_) = symbol_table
-                    .0
+                if let Some(_) = sym_table
                     .insert(name.clone(), Symbol::TypeDef(parent_type.clone()))
                 {
                     return Err(anyhow::anyhow!(
                         "Can't have two defined types named {name}"
                     ));
                 }
-                parent_type.validate(symbol_table)?;
+                parent_type.validate(sym_table)?;
                 return Ok(());
             }
-            Self::Table(table) => {
-                if let Some(_) = symbol_table.0.insert(
+            Self::TableSchema(table) => {
+                if let Some(_) = sym_table.insert(
                     table.table_name.clone(),
                     Symbol::Table(table.clone()),
                 ) {
@@ -118,24 +109,24 @@ impl Validate for Stmt {
                         table.table_name
                     ));
                 }
-                table.validate(symbol_table)?;
+                table.validate(sym_table)?;
                 return Ok(());
             }
         }
     }
 }
 
-impl Validate for SpreadsheetSchema {
-    fn validate(&self, symbol_table: &mut SymbolTable) -> anyhow::Result<()> {
+impl Validate for DbSchema {
+    fn validate(&self, sym_table: &mut SymbolTable) -> anyhow::Result<()> {
         for stmt in &self.stmts {
-            stmt.validate(symbol_table)?;
+            stmt.validate(sym_table)?;
         }
         Ok(())
     }
 }
 
-pub fn validate_prgm(prgm: &SpreadsheetSchema) -> anyhow::Result<SymbolTable> {
-    let mut sym_table = SymbolTable(HashMap::new());
+pub fn validate_prgm(prgm: &DbSchema) -> anyhow::Result<SymbolTable> {
+    let mut sym_table = HashMap::new();
     prgm.validate(&mut sym_table)?;
     Ok(sym_table)
 }

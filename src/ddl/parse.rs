@@ -88,7 +88,9 @@ pub fn parse_dbl_range(tq: &TokenQueue<Token>) -> ParseResult<DblRange> {
     Ok((DblRange { min, max }, tq.get_idx()))
 }
 
-pub fn parse_parent_type(tq: &TokenQueue<Token>) -> ParseResult<ParentType> {
+pub fn parse_parent_type(
+    tq: &TokenQueue<Token>,
+) -> ParseResult<ParentTypeExpr> {
     let mut tq = tq.clone();
 
     let parent_name = tq
@@ -99,10 +101,10 @@ pub fn parse_parent_type(tq: &TokenQueue<Token>) -> ParseResult<ParentType> {
     match parent_name.to_lowercase().as_str() {
         "int" | "integer" => {
             if let Ok((range, end)) = parse_int_range(&tq) {
-                return Ok((ParentType::Int(range), end));
+                return Ok((ParentTypeExpr::Int(range), end));
             }
             return Ok((
-                ParentType::Int(Range {
+                ParentTypeExpr::Int(Range {
                     min: None,
                     max: None,
                 }),
@@ -111,10 +113,10 @@ pub fn parse_parent_type(tq: &TokenQueue<Token>) -> ParseResult<ParentType> {
         }
         "str" | "string" | "text" => {
             if let Ok((range, end)) = parse_int_range(&tq) {
-                return Ok((ParentType::Str(range), end));
+                return Ok((ParentTypeExpr::Str(range), end));
             }
             return Ok((
-                ParentType::Str(Range {
+                ParentTypeExpr::Str(Range {
                     min: None,
                     max: None,
                 }),
@@ -123,33 +125,33 @@ pub fn parse_parent_type(tq: &TokenQueue<Token>) -> ParseResult<ParentType> {
         }
         "dbl" | "double" | "float" => {
             if let Ok((range, end)) = parse_dbl_range(&tq) {
-                return Ok((ParentType::Dbl(range), end));
+                return Ok((ParentTypeExpr::Dbl(range), end));
             }
             return Ok((
-                ParentType::Dbl(Range {
+                ParentTypeExpr::Dbl(Range {
                     min: None,
                     max: None,
                 }),
                 tq.get_idx(),
             ));
         }
-        _ => Ok((ParentType::Ident(parent_name.to_string()), tq.get_idx())),
+        _ => Ok((ParentTypeExpr::Ident(parent_name.to_string()), tq.get_idx())),
     }
 }
 
-pub fn parse_dtype(tq: &TokenQueue<Token>) -> ParseResult<DType> {
+pub fn parse_dtype(tq: &TokenQueue<Token>) -> ParseResult<DTypeExpr> {
     let mut tq = tq.clone();
 
     let parent = tq.parse(parse_parent_type)?;
 
     let nullable = tq.consume_eq(Token::QMark).is_ok();
 
-    Ok((DType { parent, nullable }, tq.get_idx()))
+    Ok((DTypeExpr { parent, nullable }, tq.get_idx()))
 }
 
 pub fn parse_column_schema(
     tq: &TokenQueue<Token>,
-) -> ParseResult<ColumnSchema> {
+) -> ParseResult<ColumnSchemaExpr> {
     let mut tq: TokenQueue<Token> = tq.clone();
 
     let column_name = tq
@@ -174,7 +176,7 @@ pub fn parse_column_schema(
     }
 
     Ok((
-        ColumnSchema {
+        ColumnSchemaExpr {
             column_name,
             dtype,
             default_value: default_value.cloned().into(),
@@ -183,7 +185,9 @@ pub fn parse_column_schema(
     ))
 }
 
-pub fn parse_table_schema(tq: &TokenQueue<Token>) -> ParseResult<TableSchema> {
+pub fn parse_table_schema(
+    tq: &TokenQueue<Token>,
+) -> ParseResult<TableSchemaExpr> {
     let mut tq_mut = tq.clone();
 
     let table_name = tq
@@ -205,7 +209,7 @@ pub fn parse_table_schema(tq: &TokenQueue<Token>) -> ParseResult<TableSchema> {
 
     tq_mut.consume_eq(Token::CParen)?;
     Ok((
-        TableSchema {
+        TableSchemaExpr {
             table_name: table_name.to_string(),
             columns,
         },
@@ -230,7 +234,7 @@ pub fn parse_stmt(tq: &TokenQueue<Token>) -> ParseResult<Stmt> {
         }
         Ok(Token::TableKwd) => {
             let (table_schema, end) = parse_table_schema(&tq)?;
-            Ok((Stmt::Table(Rc::new(table_schema)), end))
+            Ok((Stmt::TableSchema(Rc::new(table_schema)), end))
         }
         Ok(tok) => {
             dbg!(tok);
@@ -240,7 +244,7 @@ pub fn parse_stmt(tq: &TokenQueue<Token>) -> ParseResult<Stmt> {
     }
 }
 
-pub fn parse_prgm(tq: &TokenQueue<Token>) -> ParseResult<SpreadsheetSchema> {
+pub fn parse_prgm(tq: &TokenQueue<Token>) -> ParseResult<DbSchema> {
     let mut tq = tq.clone();
     let mut stmts = vec![];
 
@@ -257,5 +261,5 @@ pub fn parse_prgm(tq: &TokenQueue<Token>) -> ParseResult<SpreadsheetSchema> {
         return Err(anyhow::anyhow!("Program ends without a valid statement"));
     }
 
-    Ok((SpreadsheetSchema { stmts }, tq.get_idx()))
+    Ok((DbSchema { stmts }, tq.get_idx()))
 }

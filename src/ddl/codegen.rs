@@ -25,39 +25,39 @@ impl<T: Display> Display for Range<T> {
     }
 }
 
-impl Display for ParentType {
+impl Display for ParentTypeExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParentType::Int(range) => {
+            ParentTypeExpr::Int(range) => {
                 if range.min.is_none() && range.max.is_none() {
                     return write!(f, "int");
                 }
                 write!(f, "int{}", range)
             }
-            ParentType::Dbl(range) => {
+            ParentTypeExpr::Dbl(range) => {
                 if range.min.is_none() && range.max.is_none() {
                     return write!(f, "dbl");
                 }
                 write!(f, "dbl{}", range)
             }
-            ParentType::Str(range) => {
+            ParentTypeExpr::Str(range) => {
                 if range.min.is_none() && range.max.is_none() {
                     return write!(f, "str");
                 }
                 write!(f, "str{}", range,)
             }
-            ParentType::Ident(val) => write!(f, "{}", val),
+            ParentTypeExpr::Ident(val) => write!(f, "{}", val),
         }
     }
 }
 
-impl Display for DType {
+impl Display for DTypeExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", self.parent, if self.nullable { "?" } else { "" })
     }
 }
 
-impl Display for ColumnSchema {
+impl Display for ColumnSchemaExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.default_value {
             Some(val) => {
@@ -68,7 +68,7 @@ impl Display for ColumnSchema {
     }
 }
 
-impl Display for TableSchema {
+impl Display for TableSchemaExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "'{}'(", self.table_name)?;
         for column in &self.columns {
