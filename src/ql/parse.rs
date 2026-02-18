@@ -1,14 +1,9 @@
 use std::rc::Rc;
 
-use crate::{
-    core::schema::{
-        ColumnSchema, DataType, DblDataType, IntDataType, StrDataType,
-        TableSchema,
-    },
-    ddl::{
-        core::{Stmt, Symbol, SymbolTable},
-        lex::Token,
-    },
+use crate::core::ql::{Stmt, Symbol, SymbolTable, lex::Token};
+use crate::core::schema::{
+    ColumnSchema, DBL_TYPE_NAME, DataType, DblDataType, INT_TYPE_NAME,
+    IntDataType, STR_TYPE_NAME, SpreadsheetSchema, StrDataType, TableSchema,
 };
 use rlrl::parse::{ParseResult, TokenQueue};
 pub trait Parse: Sized {
@@ -181,15 +176,15 @@ fn parse_data_type(
         .ok_or(anyhow::anyhow!("Expected an identifier!"))?;
 
     match &ident as &str {
-        "int" => {
+        INT_TYPE_NAME => {
             let (dtype, end) = IntDataType::parse(&tq, symtable)?;
             return Ok((Rc::new(dtype), end));
         }
-        "dbl" => {
+        DBL_TYPE_NAME => {
             let (dtype, end) = DblDataType::parse(&tq, symtable)?;
             return Ok((Rc::new(dtype), end));
         }
-        "str" => {
+        STR_TYPE_NAME => {
             let (dtype, end) = StrDataType::parse(&tq, symtable)?;
             return Ok((Rc::new(dtype), end));
         }
@@ -285,7 +280,7 @@ impl Parse for Stmt {
                     ));
                 }
 
-                Ok((Stmt::DataType(type_name, data_type), tq.get_idx()))
+                Ok((Stmt::TypeDef(type_name, data_type), tq.get_idx()))
             }
             Ok(Token::TableKwd) => {
                 let table_schema =
@@ -303,40 +298,31 @@ impl Parse for Stmt {
 
                 Ok((Stmt::TableSchema(table_schema), tq.get_idx()))
             }
-            Ok(tok) => {
-                dbg!(tok);
-                Err(anyhow::anyhow!("Couldn't parse statement!"))
-            }
+            Ok(_) => Err(anyhow::anyhow!("Couldn't parse statement!")),
             Err(_) => Err(anyhow::anyhow!("Couldn't parse statement!")),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
+impl Parse for SpreadsheetSchema {
+    fn parse(
+        tq: &TokenQueue<Token>,
+        symtable: &mut SymbolTable,
+    ) -> ParseResult<Self> {
+        let mut tq: TokenQueue<Token> = tq.clone();
+        let mut tables = vec![];
+        while let Ok(stmt) = tq.parse_with_mut(Stmt::parse, symtable) {
+            tq.consume_eq(Token::Semicolon)?;
+            // tables.push(stmt);
 
-    use rlrl::parse::TokenQueue;
-
-    use crate::ddl::{
-        lex::{Token, setup_lexer},
-        parse::{Parse, Stmt},
-    };
-
-    fn lex(s: &str) -> anyhow::Result<TokenQueue<Token>> {
-        let lexer = setup_lexer();
-        Ok(TokenQueue::from(lexer.lex(s)?))
-    }
-
-    #[test]
-    fn parse_stmt_test() -> anyhow::Result<()> {
-        let mut tq = lex("type myType int<1,5>")?;
-        let mut symtable = HashMap::new();
-
-        let stmt = tq.parse_with_mut(Stmt::parse, &mut symtable)?;
-        dbg!(&stmt);
-        dbg!(&symtable);
-
-        Ok(())
+            match stmt {
+                Stmt::TableSchema(schema) => tables.push(schema),
+                _ => {}
+            }
+        }
+        Ok((
+            SpreadsheetSchema::new("ss_name".into(), tables),
+            tq.get_idx(),
+        ))
     }
 }

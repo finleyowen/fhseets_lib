@@ -1,7 +1,18 @@
-use std::{fmt::Debug, rc::Rc};
+pub mod codegen;
+pub mod json;
+
+use crate::json::ToJson;
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
+
+pub const INT_TYPE_NAME: &str = "int";
+pub const DBL_TYPE_NAME: &str = "dbl";
+pub const STR_TYPE_NAME: &str = "str";
 
 /// Represents a data type in the application.
-pub trait DataType: Debug {
+pub trait DataType: ToJson + Display {
     fn get_nullable(&self) -> bool;
 
     fn validator(&self, s: &str) -> anyhow::Result<()>;
@@ -58,6 +69,7 @@ impl DataType for IntDataType {
 
 /// Represents a double data type in the application.
 #[derive(Debug)]
+
 pub struct DblDataType {
     min: Option<f64>,
     max: Option<f64>,
@@ -130,7 +142,6 @@ impl DataType for StrDataType {
 }
 
 /// Represents a column schema in the application.
-#[derive(Debug)]
 pub struct ColumnSchema {
     column_name: Rc<str>,
     column_type: Rc<dyn DataType>,
@@ -154,7 +165,6 @@ impl ColumnSchema {
 }
 
 /// Represents a table schema in the application.
-#[derive(Debug)]
 pub struct TableSchema {
     table_name: Rc<str>,
     columns: Vec<ColumnSchema>,
@@ -184,22 +194,25 @@ impl TableSchema {
 pub type SharedTableSchema = Rc<TableSchema>;
 
 /// Represents a database schema in the application.
-#[derive(Debug)]
-pub struct DbSchema {
-    db_name: Rc<str>,
-    tables: Vec<TableSchema>,
+pub struct SpreadsheetSchema {
+    ss_name: Rc<str>,
+    tables: Vec<Rc<TableSchema>>,
 }
 
-impl DbSchema {
+impl SpreadsheetSchema {
+    pub fn new(ss_name: Rc<str>, tables: Vec<Rc<TableSchema>>) -> Self {
+        Self { ss_name, tables }
+    }
+
     pub fn get_name(&self) -> Rc<str> {
-        self.db_name.clone()
+        self.ss_name.clone()
     }
 
     pub fn get_num_tables(&self) -> usize {
         self.tables.len()
     }
 
-    pub fn get_table(&self, idx: usize) -> Option<&TableSchema> {
+    pub fn get_table(&self, idx: usize) -> Option<&Rc<TableSchema>> {
         self.tables.get(idx)
     }
 }

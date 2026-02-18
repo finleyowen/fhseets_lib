@@ -1,9 +1,67 @@
-use super::core::Literal;
 use rlrl::lex::*;
 use std::rc::Rc;
 
+/// A literal in the query language.
+#[derive(Clone, PartialEq)]
+pub enum Literal {
+    Int(i32),
+    Dbl(f64),
+    Str(Rc<str>),
+}
+
+impl Literal {
+    pub fn is_str(&self) -> bool {
+        match self {
+            Self::Str(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Clones the string value if `self` is a `Literal::Str`, otherwise
+    /// returns `None`.
+    pub fn get_str(&self) -> Option<Rc<str>> {
+        match self {
+            Self::Str(val) => Some(val.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn is_i32(&self) -> bool {
+        match self {
+            Self::Int(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Clones the int value if `self` is a `Literal::Int`, otherwise returns
+    /// `None`.
+    pub fn get_i32(&self) -> Option<i32> {
+        match self {
+            Self::Int(val) => Some(val.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn is_f64(&self) -> bool {
+        match self {
+            Self::Dbl(_) | Self::Int(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Clones the double value if `self` is a `Literal::Dbl`, otherwise returns
+    /// `None`.
+    pub fn get_f64(&self) -> Option<f64> {
+        match self {
+            Self::Dbl(val) => Some(val.clone()),
+            Self::Int(val) => Some(*val as f64),
+            _ => None,
+        }
+    }
+}
+
 /// Enum representing the tokens available to the lexer.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Token {
     // chars
     OParen,
