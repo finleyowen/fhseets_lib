@@ -1,6 +1,8 @@
 pub mod codegen;
 pub mod json;
 
+use anyhow::Ok;
+
 use crate::{json::ToJson, ql::lex::Literal};
 use std::{
     fmt::{Debug, Display},
@@ -15,7 +17,7 @@ pub const STR_TYPE_NAME: &str = "str";
 pub trait DataType: ToJson + Display {
     fn get_nullable(&self) -> bool;
 
-    fn validate(&self, lit: Option<&Literal>) -> anyhow::Result<()> {
+    fn validate_literal(&self, lit: Option<&Literal>) -> anyhow::Result<()> {
         match lit {
             Some(lit) => self.validator(lit),
             None => {
@@ -27,6 +29,8 @@ pub trait DataType: ToJson + Display {
             }
         }
     }
+
+    fn validate_data_type(&self) -> anyhow::Result<()>;
 
     fn validator(&self, lit: &Literal) -> anyhow::Result<()>;
 }
@@ -85,6 +89,18 @@ impl DataType for IntDataType {
             )),
         }
     }
+
+    fn validate_data_type(&self) -> anyhow::Result<()> {
+        if let Some(min) = self.min
+            && let Some(max) = self.max
+            && min > max
+        {
+            return Err(anyhow::anyhow!(
+                "Can't have min ({min}) > max ({max})"
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Represents a double data type in the application.
@@ -139,6 +155,18 @@ impl DataType for DblDataType {
             )),
         }
     }
+
+    fn validate_data_type(&self) -> anyhow::Result<()> {
+        if let Some(min) = self.min
+            && let Some(max) = self.max
+            && min > max
+        {
+            return Err(anyhow::anyhow!(
+                "Can't have min ({min}) > max ({max})"
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Represents a string data type in the application.
@@ -182,6 +210,18 @@ impl DataType for StrDataType {
             )),
         }
     }
+
+    fn validate_data_type(&self) -> anyhow::Result<()> {
+        if let Some(min) = self.min
+            && let Some(max) = self.max
+            && min > max
+        {
+            return Err(anyhow::anyhow!(
+                "Can't have min ({min}) > max ({max})"
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Represents a column schema in the application.
@@ -211,6 +251,10 @@ impl ColumnSchema {
     pub fn get_type(&self) -> Rc<dyn DataType> {
         self.column_type.clone()
     }
+
+    pub fn validate_column_schema(&self) -> anyhow::Result<()> {
+        self.get_type().validate_data_type()
+    }
 }
 
 /// Represents a table schema in the application.
@@ -238,6 +282,13 @@ impl TableSchema {
     pub fn get_column(&self, idx: usize) -> Option<&ColumnSchema> {
         self.columns.get(idx)
     }
+
+    pub fn validate_table_schema(&self) -> anyhow::Result<()> {
+        for col in &self.columns {
+            col.validate_column_schema()?;
+        }
+        Ok(())
+    }
 }
 
 pub type SharedTableSchema = Rc<TableSchema>;
@@ -263,5 +314,12 @@ impl SpreadsheetSchema {
 
     pub fn get_table(&self, idx: usize) -> Option<&Rc<TableSchema>> {
         self.tables.get(idx)
+    }
+
+    pub fn validate_spreadsheet_schema(&self) -> anyhow::Result<()> {
+        for table in &self.tables {
+            table.validate_table_schema()?;
+        }
+        Ok(())
     }
 }

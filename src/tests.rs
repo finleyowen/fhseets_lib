@@ -10,6 +10,7 @@ use rlrl::parse::TokenQueue;
 use std::{collections::HashMap, fs};
 
 const NUM_VALID_TEST_SCHEMA: usize = 3;
+const NUM_INVALID_TEST_SCHEMA: usize = 5;
 
 fn lex_file(path: &str) -> anyhow::Result<TokenQueue<Token>> {
     let s = fs::read_to_string(path)?;
@@ -63,6 +64,18 @@ Got:
 fn parse_schema_from_str(s: &str) -> anyhow::Result<SpreadsheetSchema> {
     let tq = lex(s)?;
     let schema = parse_spreadsheet_schema(&tq)?;
+    Ok(schema)
+}
+
+fn parse_valid_schema_from_file(
+    path: &str,
+) -> anyhow::Result<SpreadsheetSchema> {
+    let tq = lex_file(path)?;
+
+    let schema = parse_spreadsheet_schema(&tq)?;
+
+    schema.validate_spreadsheet_schema()?;
+
     Ok(schema)
 }
 
@@ -172,5 +185,15 @@ Different at: {}",
             different_at(actual, expected).unwrap()
         );
     }
+    Ok(())
+}
+
+#[test]
+fn test_schema_validation() -> anyhow::Result<()> {
+    for i in 1..(NUM_INVALID_TEST_SCHEMA + 1) {
+        let path = format!("test_artifacts/invalid_schemas/input_{i}.txt");
+        assert!(parse_valid_schema_from_file(&path).is_err());
+    }
+
     Ok(())
 }
