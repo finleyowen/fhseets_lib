@@ -1,5 +1,5 @@
 use rlrl::lex::*;
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 /// A literal in the query language.
 #[derive(Clone, Debug, PartialEq)]
@@ -56,6 +56,16 @@ impl Literal {
             Self::Dbl(val) => Some(val.clone()),
             Self::Int(val) => Some(*val as f64),
             _ => None,
+        }
+    }
+}
+
+impl Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::Int(val) => write!(f, "{val}"),
+            Literal::Dbl(val) => write!(f, "{val}"),
+            Literal::Str(val) => write!(f, "{val}"),
         }
     }
 }

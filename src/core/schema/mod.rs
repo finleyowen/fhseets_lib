@@ -1,7 +1,7 @@
 pub mod codegen;
 pub mod json;
 
-use crate::json::ToJson;
+use crate::{json::ToJson, ql::lex::Literal};
 use std::{
     fmt::{Debug, Display},
     rc::Rc,
@@ -15,14 +15,20 @@ pub const STR_TYPE_NAME: &str = "str";
 pub trait DataType: ToJson + Display {
     fn get_nullable(&self) -> bool;
 
-    fn validator(&self, s: &str) -> anyhow::Result<()>;
-
-    fn validate(&self, s: &str) -> anyhow::Result<()> {
-        if self.get_nullable() && s.is_empty() {
-            return Ok(());
+    fn validate(&self, lit: Option<&Literal>) -> anyhow::Result<()> {
+        match lit {
+            Some(lit) => self.validator(lit),
+            None => {
+                if self.get_nullable() {
+                    return Ok(());
+                } else {
+                    return Err(anyhow::anyhow!("Required value was null!"));
+                }
+            }
         }
-        self.validator(s)
     }
+
+    fn validator(&self, lit: &Literal) -> anyhow::Result<()>;
 }
 
 /// Type alias over `Rc<dyn DataType>` for convenience.
@@ -40,6 +46,30 @@ impl IntDataType {
     pub fn new(min: Option<i32>, max: Option<i32>, nullable: bool) -> Self {
         Self { min, max, nullable }
     }
+
+    fn validate_i32(&self, val: i32) -> anyhow::Result<()> {
+        if let Some(min) = self.min
+            && val < min
+        {
+            return Err(anyhow::anyhow!(
+                "Minimum value {} (entered {})",
+                min,
+                val
+            ));
+        }
+
+        if let Some(max) = self.max
+            && val > max
+        {
+            return Err(anyhow::anyhow!(
+                "Maximum value {} (entered {})",
+                max,
+                val
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl DataType for IntDataType {
@@ -47,22 +77,12 @@ impl DataType for IntDataType {
         self.nullable
     }
 
-    fn validator(&self, s: &str) -> anyhow::Result<()> {
-        match s.parse::<i32>() {
-            Ok(val) => {
-                if let Some(min) = &self.min
-                    && *min > val
-                {
-                    return Err(anyhow::anyhow!("Minimum value {min}"));
-                }
-                if let Some(max) = &self.max
-                    && *max < val
-                {
-                    return Err(anyhow::anyhow!("Maximum value {max}"));
-                }
-                Ok(())
-            }
-            Err(_) => Err(anyhow::anyhow!("Couldn't parse int from {}", s)),
+    fn validator(&self, lit: &Literal) -> anyhow::Result<()> {
+        match lit {
+            Literal::Int(val) => self.validate_i32(*val),
+            _ => Err(anyhow::anyhow!(
+                "Couldn't validate non-integer literal against integer type."
+            )),
         }
     }
 }
@@ -80,6 +100,30 @@ impl DblDataType {
     pub fn new(min: Option<f64>, max: Option<f64>, nullable: bool) -> Self {
         Self { min, max, nullable }
     }
+
+    fn validate_f64(&self, val: f64) -> anyhow::Result<()> {
+        if let Some(min) = self.min
+            && val < min
+        {
+            return Err(anyhow::anyhow!(
+                "Minimum value {} (entered {})",
+                min,
+                val
+            ));
+        }
+
+        if let Some(max) = self.max
+            && val > max
+        {
+            return Err(anyhow::anyhow!(
+                "Maximum value {} (entered {})",
+                max,
+                val
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl DataType for DblDataType {
@@ -87,22 +131,12 @@ impl DataType for DblDataType {
         self.nullable
     }
 
-    fn validator(&self, s: &str) -> anyhow::Result<()> {
-        match s.parse::<f64>() {
-            Ok(val) => {
-                if let Some(min) = &self.min
-                    && *min > val
-                {
-                    return Err(anyhow::anyhow!("Minimum value {min}"));
-                }
-                if let Some(max) = &self.max
-                    && *max < val
-                {
-                    return Err(anyhow::anyhow!("Maximum value {max}"));
-                }
-                Ok(())
-            }
-            Err(_) => Err(anyhow::anyhow!("Couldn't parse int from {}", s)),
+    fn validator(&self, lit: &Literal) -> anyhow::Result<()> {
+        match lit {
+            Literal::Dbl(val) => self.validate_f64(*val),
+            _ => Err(anyhow::anyhow!(
+                "Couldn't validate non-double literal against double type."
+            )),
         }
     }
 }
@@ -119,14 +153,8 @@ impl StrDataType {
     pub fn new(min: Option<usize>, max: Option<usize>, nullable: bool) -> Self {
         Self { min, max, nullable }
     }
-}
 
-impl DataType for StrDataType {
-    fn get_nullable(&self) -> bool {
-        self.nullable
-    }
-
-    fn validator(&self, s: &str) -> anyhow::Result<()> {
+    fn validate_str(&self, s: &str) -> anyhow::Result<()> {
         if let Some(min) = &self.min
             && s.len() < *min
         {
@@ -141,17 +169,38 @@ impl DataType for StrDataType {
     }
 }
 
+impl DataType for StrDataType {
+    fn get_nullable(&self) -> bool {
+        self.nullable
+    }
+
+    fn validator(&self, lit: &Literal) -> anyhow::Result<()> {
+        match lit {
+            Literal::Str(val) => self.validate_str(&val),
+            _ => Err(anyhow::anyhow!(
+                "Couldn't validate non-string literal against string type."
+            )),
+        }
+    }
+}
+
 /// Represents a column schema in the application.
 pub struct ColumnSchema {
     column_name: Rc<str>,
     column_type: Rc<dyn DataType>,
+    default_value: Option<Literal>,
 }
 
 impl ColumnSchema {
-    pub fn new(column_name: Rc<str>, column_type: Rc<dyn DataType>) -> Self {
+    pub fn new(
+        column_name: Rc<str>,
+        column_type: Rc<dyn DataType>,
+        default_value: Option<Literal>,
+    ) -> Self {
         Self {
             column_name,
             column_type,
+            default_value,
         }
     }
 

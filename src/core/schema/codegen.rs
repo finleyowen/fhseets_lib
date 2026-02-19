@@ -79,7 +79,14 @@ impl Display for StrDataType {
 
 impl Display for ColumnSchema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.column_name, self.column_type)
+        match &self.default_value {
+            Some(val) => write!(
+                f,
+                "{}: {} = {}",
+                self.column_name, self.column_type, val
+            ),
+            None => write!(f, "{}: {}", self.column_name, self.column_type),
+        }
     }
 }
 

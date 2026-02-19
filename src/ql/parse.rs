@@ -250,7 +250,20 @@ impl Parse for ColumnSchema {
 
         let column_type = tq.parse_with_mut(parse_data_type, symtable)?;
 
-        Ok((ColumnSchema::new(column_name, column_type), tq.get_idx()))
+        let default_value = match tq.consume_eq(Token::Equals) {
+            Ok(_) => Some(
+                tq.consume()?
+                    .get_literal()
+                    .ok_or(anyhow::anyhow!("Couldn't get default value!"))?
+                    .clone(),
+            ),
+            Err(_) => None,
+        };
+
+        Ok((
+            ColumnSchema::new(column_name, column_type, default_value),
+            tq.get_idx(),
+        ))
     }
 }
 

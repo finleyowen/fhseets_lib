@@ -119,6 +119,9 @@ table T2 (b: int<, >);",
             == "table T (id: int<0, >);"
     );
 
+    // schemas with default values
+    assert_maps_to_schema("table T (a: int<, > = 0);")?;
+
     Ok(())
 }
 
